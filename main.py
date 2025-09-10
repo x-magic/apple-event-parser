@@ -116,7 +116,7 @@ def parse_m3u8(url):
                 current_stream.stream_info.video_range,
                 current_stream.stream_info.codecs.split(",")[0]
             ),
-            "default": (seq is 0),
+            "default": (seq == 0),
             "file_name": "video_{0}.{1}".format(video_index, "ts")
         })
 
@@ -146,6 +146,7 @@ def download_with_ffmpeg(audio_tracks, subtitles, videos):
         )
 
         ff_audio = ffmpy.FFmpeg(
+            global_options='-n',
             inputs={audio_track['uri']: None},
             outputs={filename: ['-c', 'copy']}
         )
@@ -161,6 +162,7 @@ def download_with_ffmpeg(audio_tracks, subtitles, videos):
         )
 
         ff_subtitle = ffmpy.FFmpeg(
+            global_options='-n -extension_picky 0',
             inputs={subtitle['uri']: None},
             outputs={filename: ['-c', 'copy']}
         )
@@ -176,6 +178,7 @@ def download_with_ffmpeg(audio_tracks, subtitles, videos):
         )
 
         ff_video = ffmpy.FFmpeg(
+            global_options='-n',
             inputs={video['uri']: None},
             outputs={filename: ['-c', 'copy']}
         )
