@@ -10,6 +10,7 @@ import os
 import ffmpy
 import m3u8
 from tabulate import tabulate
+from urllib.parse import urljoin
 
 
 def parse_m3u8(url):
@@ -35,7 +36,7 @@ def parse_m3u8(url):
     for media_index, media_item in enumerate(playlist.media):
         if media_item.type == "SUBTITLES":
             subtitles.append({
-                "uri": media_item.uri,
+                "uri": urljoin(url, media_item.uri),
                 "name": media_item.name,
                 "language": media_item.language,
                 "default": (media_item.language == 'en'),
@@ -43,22 +44,22 @@ def parse_m3u8(url):
             })
         elif media_item.type == "AUDIO":
             # Determine the encoding type and extension in filename
-            if "aac" in media_item.group_id:
+            if "aac" in (media_item.group_id or ""):
                 file_extension = 'aac'
-            elif "eac3" in media_item.group_id:
+            elif "eac3" in (media_item.group_id or ""):
                 file_extension = 'eac3'
             else:
-                raise Exception("Unsupported audio type: " + media_item.group_id)
+                raise Exception("Unsupported audio type: " + (media_item.group_id or "Unknown"))
 
             audio_tracks.append({
-                "uri": media_item.uri,
+                "uri": urljoin(url, media_item.uri),
                 "name": media_item.name,
                 "language": media_item.language,
                 "group_id": media_item.group_id,
                 "characteristics": media_item.characteristics,
                 "default": (
                         media_item.language == "en" and
-                        media_item.group_id.startswith("audio-stereo") and
+                        (media_item.group_id or "").startswith("audio-stereo") and
                         media_item.characteristics is None
                 ),
                 "file_name": "audio_{0}.{1}".format(media_index, file_extension)
@@ -78,7 +79,8 @@ def parse_m3u8(url):
             video_stream.stream_info.hdcp_level or "None",
             video_stream.stream_info.pathway_id or "None",
             video_stream.stream_info.program_id or "None",
-            'x'.join(map(str, video_stream.stream_info.resolution)),
+            'x'.join(
+                map(str, video_stream.stream_info.resolution)) if video_stream.stream_info.resolution else "Unknown",
             video_stream.stream_info.stable_variant_id or "None",
             video_stream.stream_info.subtitles,
             video_stream.stream_info.video or "None",
@@ -111,10 +113,10 @@ def parse_m3u8(url):
     for seq, video_index in enumerate(video_stream_indexes.split('+')):
         current_stream = playlist.playlists[int(video_index)]
         videos.append({
-            "uri": current_stream.uri,
+            "uri": urljoin(url, current_stream.uri),
             "codec": "{0} ({1})".format(
                 current_stream.stream_info.video_range,
-                current_stream.stream_info.codecs.split(",")[0]
+                (current_stream.stream_info.codecs or "").split(",")[0]
             ),
             "default": (seq == 0),
             "file_name": "video_{0}.{1}".format(video_index, "ts")
@@ -135,7 +137,7 @@ def download_with_ffmpeg(audio_tracks, subtitles, videos):
     :param subtitles: A dictionary of all available subtitles
     :param videos: A dictionary of all selected video sources
     :return: None
-    :raise Exception: If the audio type or characteristics is not recognized
+    :raise Exception: If the audio type or characteristics is not recognised
     """
 
     # Download audio tracks
@@ -243,7 +245,8 @@ def merge_as_mkv(audio_tracks, subtitles, videos):
 if __name__ == '__main__':
     print("Apple Event Video High-quality Downloader")
     print("The target URL should look something like: ")
-    print("https://events-delivery.apple.com/random_string/m3u8/vod_index-random_string.m3u8")
+    print("- https://events-delivery.apple.com/random_string/m3u8/vod_index-random_string.m3u8")
+    print("- https://events-delivery.apple.com/random_string/vod_main_random_string/vod_main_random_string.m3u8")
     event_url = input("Enter the m3u8 URI: ") or None
 
     # Parse the M3U8 playlist
